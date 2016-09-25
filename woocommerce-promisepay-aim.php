@@ -124,7 +124,7 @@ class SPYR_PromisePay_AIM extends WC_Payment_Gateway {
 		2. create the item at Promisepay
 		2. set the Promiepay order status to 
 		*/
-		/*
+		
 		$current_user = wp_get_current_user();
 		if (!$current_user->exists()){
 			//aboart?
@@ -134,13 +134,13 @@ class SPYR_PromisePay_AIM extends WC_Payment_Gateway {
 			"id" => $current_user->ID,
 			"first_name"         	=> $current_user->first_name,
 			"last_name"          	=> $current_user->last_name,
-			"email"              	=> $current_user->email,
+			"email"              	=> 'placeholder@placeholder.com',
 			"state"					=> 'NY',
 			"country"				=> 'USA',
 		  );
 
-*/
-		  
+
+		  /*
 		$payload_user = array(
 			'id' => '98765431230',
 			'first_name'        	=> 'first',
@@ -149,6 +149,7 @@ class SPYR_PromisePay_AIM extends WC_Payment_Gateway {
 			"state"					=> 'NY',
 			"country"				=> 'USA',
 		  );
+		  */
    		// add user of the buyer 
 
 		// Send this payload to PromisPay for processing
