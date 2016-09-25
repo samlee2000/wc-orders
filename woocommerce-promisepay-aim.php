@@ -155,7 +155,7 @@ class SPYR_PromisePay_AIM extends WC_Payment_Gateway {
 		// Send this payload to PromisPay for processing
 		//$environment_url_user = $environment_url . 'users'
 		
-		$environment_url_user = "https://test.api.promisepay.com/users";
+		$environment_url_user =  $environment_url ."users";
 
 		$response = wp_remote_post( $environment_url_user, array(
 			'method'    => 'POST',
