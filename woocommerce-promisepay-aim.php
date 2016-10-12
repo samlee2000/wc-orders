@@ -1,4 +1,142 @@
 <?php
+
+// Report all PHP errors (see changelog)
+error_reporting(E_ALL);
+//$USER_ID_OFFSET = 10000;
+define("USER_ID_OFFSET", 10000);
+
+function pp_id_from_wc_id($wc_id){
+	return USER_ID_OFFSET + $wc_id;
+}
+function add_promisepay_user($environment_url, $user) {
+		$environment_url_user =  $environment_url ."users";
+
+		$email = ($user->user_email === "samlee2000@gmail.com") ?  
+				 "nobody@no.com": $user->user_email;
+
+		$payload_user = array(
+			"id" =>  pp_id_from_wc_id( $user->ID ),
+			"first_name"         	=> $user->first_name, //buyer
+			"last_name"          	=> $user->last_name,
+			"email"              	=> $email,
+			"state"					=> 'NY',
+			"country"				=> 'USA',
+		  );
+
+		error_log( " payload item build-query::: " . http_build_query($payload_user) );
+		//add buyer to Promisepay 
+
+		$response = wp_remote_post( $environment_url_user, array(
+			'method'    => 'POST',
+			'headers'	=> array(
+				"Authorization" => 'Basic c2FtbGVlMjAwMEBnbWFpbC5jb206c2Vjb25kZ2Y',
+				),
+			'body'      => http_build_query( $payload_user ),
+			'timeout'   => 120,
+			'sslverify' => false,
+			) 
+		);
+
+		if ( is_wp_error( $response ) ) 
+			throw new Exception( __( 'We are currently experiencing problems trying to connect to this payment gateway. Sorry for the inconvenience.', 'spyr-promisepay-aim' ) );
+
+		if ( empty( $response['body'] ) ){
+
+			throw new Exception( __( 'PromisPay\'s Response empty, from the url:'.$environment_url_user, 'spyr-promisepay-aim' ) );
+		}
+
+		return $response;
+	     
+}
+
+function  add_promisepay_buyer($environment_url){
+		$current_user = wp_get_current_user();
+		if (!$current_user->exists()){
+			//abort?
+		}
+		
+		return add_promisepay_user ($environment_url, $current_user); 
+
+}
+
+
+function  add_promisepay_seller($environment_url, $order_id){
+			
+		
+		$seller_id = dokan_get_seller_id_by_order( $order_id );
+
+		$seller = new WP_user($seller_id);
+
+		return add_promisepay_user($environment_url, $seller);
+
+}
+
+function  add_promisepay_item($environment_url, $order_id) {
+		$customer_order = new WC_Order( $order_id );
+		// Are we testing right now or is it a real transaction
+		
+		$environment_url_items =  $environment_url ."items";
+
+		$current_user = wp_get_current_user();
+		if (!$current_user->exists()){
+			//abort?
+		}
+
+		$order_id  = $customer_order->get_order_number();
+		$seller_id = dokan_get_seller_id_by_order( $order_id );
+
+		error_log("order id" . $order_id);
+		error_log( "seller id " . $seller_id  );
+
+        $order_items = $customer_order->get_items();
+
+        foreach( $order_items as $product ) {
+            $prodct_name[] = $product['name']; 
+        }
+
+        $product_list = implode( '_', $prodct_name );
+
+        error_log("products in the order :". $product_list);
+
+		//add the item to Promiepay:
+		$payload_item = array(
+			"id"	=>  "WooCommerceBidC".$order_id,
+			"amount"  => $customer_order-> get_total(),
+			"name"   => $product_list,
+			"payment_type" => 1, //escrow
+			"buyer_id" =>   pp_id_from_wc_id ($current_user->ID),
+			"seller_id" =>  pp_id_from_wc_id ($seller_id),
+
+		);
+
+		//implode(" | ", payload_item) ; 
+		//echo http_build_query( $payload_item ) ;
+		error_log( " payload item build-query: " . http_build_query($payload_item) );
+		error_log(" payload item " . print_r($payload_item )); 
+
+		$response = wp_remote_post( $environment_url_items, array(
+			'method'    => 'POST',
+			'headers'	=> array(
+				"Authorization" => 'Basic c2FtbGVlMjAwMEBnbWFpbC5jb206c2Vjb25kZ2Y',
+				),
+			'body'      => http_build_query( $payload_item ),
+			'timeout'   => 120,
+			'sslverify' => false,
+			) 
+		);
+
+		if ( is_wp_error( $response ) ) 
+			throw new Exception( __( 'We are currently experiencing problems trying to connect to this payment gateway. Sorry for the inconvenience.', 'spyr-promisepay-aim' ) );
+
+		if ( empty( $response['body'] ) ){
+
+			throw new Exception( __( 'PromisPay\'s Response empty, from the url:'.$environment_url_user, 'spyr-promisepay-aim' ) );
+		}
+
+		return $response;
+
+	}
+
 /* PromisPay AIM Payment Gateway Class */
 class SPYR_PromisePay_AIM extends WC_Payment_Gateway {
 
@@ -102,6 +240,8 @@ class SPYR_PromisePay_AIM extends WC_Payment_Gateway {
 			),
 		);		
 	}
+
+
 	
 	// Submit payment and handle response
 	public function process_payment( $order_id ) {
@@ -125,48 +265,13 @@ class SPYR_PromisePay_AIM extends WC_Payment_Gateway {
 		2. set the Promiepay order status to 
 		*/
 		
-		$current_user = wp_get_current_user();
-		if (!$current_user->exists()){
-			//aboart?
-		}
+
+		$response = add_promisepay_seller($environment_url, $order_id);
+
+		$response = add_promisepay_buyer ($environment_url);
+
+		$response = add_promisepay_item($environment_url, $order_id);
 		
-		$payload_user = array(
-			"id" => $current_user->ID,
-			"first_name"         	=> $current_user->first_name,
-			"last_name"          	=> $current_user->last_name,
-			"email"              	=> 'placeholder@placeholder.com',
-			"state"					=> 'NY',
-			"country"				=> 'USA',
-		  );
-
-
-		  /*
-		$payload_user = array(
-			'id' => '98765431230',
-			'first_name'        	=> 'first',
-			"last_name"          	=> 'last',
-			"email"              	=> 'fist@last.com',
-			"state"					=> 'NY',
-			"country"				=> 'USA',
-		  );
-		  */
-   		// add user of the buyer 
-
-		// Send this payload to PromisPay for processing
-		//$environment_url_user = $environment_url . 'users'
-		
-		$environment_url_user =  $environment_url ."users";
-
-		$response = wp_remote_post( $environment_url_user, array(
-			'method'    => 'POST',
-			'headers'	=> array(
-				"Authorization" => 'Basic c2FtbGVlMjAwMEBnbWFpbC5jb206c2Vjb25kZ2Y',
-				),
-			'body'      => http_build_query( $payload_user ),
-			'timeout'   => 120,
-			'sslverify' => false,
-			) 
-		);
 
 		if ( is_wp_error( $response ) ) 
 			throw new Exception( __( 'We are currently experiencing problems trying to connect to this payment gateway. Sorry for the inconvenience.', 'spyr-promisepay-aim' ) );
