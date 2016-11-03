@@ -189,7 +189,31 @@ class SPYR_PromisePay_AIM extends WC_Payment_Gateway {
 			// class will be used instead
 			add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
 		}		
+
+		//'woocommerce_api_'.strtolower(get_class($this)) will result in 'woocommerce_api_spyr_promisepay_aim'
+
+    	add_action('woocommerce_api_'.strtolower(get_class($this)), array(&$this, 'handle_callback'));
+  		error_log ( "adding callback on URL: " . 'woocommerce_api_'.strtolower(get_class($this)) ); 
+
 	} // End __construct()
+
+  	function handle_callback() {
+  		echo (" hittting the callback !!! \n");
+    			//Handle the thing here!
+  		error_log( " handle call back here ");
+		// get the raw POST data
+		$rawData = file_get_contents("php://input");
+		echo $rawData;
+		error_log ($rawData);
+		echo "\n";
+		echo "-the parsed json-------------------------\n";
+		$dataJson = json_decode($rawData);
+
+		$json_pretty_string = json_encode($dataJson, JSON_PRETTY_PRINT);
+		echo $json_pretty_string;
+		error_log ($json_pretty_string);
+  		exit ;
+  	}
 
 	// Build the administration fields for this specific Gateway
 	public function init_form_fields() {
@@ -273,14 +297,6 @@ class SPYR_PromisePay_AIM extends WC_Payment_Gateway {
 		$response = add_promisepay_item($environment_url, $order_id);
 		
 
-		if ( is_wp_error( $response ) ) 
-			throw new Exception( __( 'We are currently experiencing problems trying to connect to this payment gateway. Sorry for the inconvenience.', 'spyr-promisepay-aim' ) );
-
-		if ( empty( $response['body'] ) ){
-
-			throw new Exception( __( 'PromisPay\'s Response empty, from the url:'.$environment_url_user, 'spyr-promisepay-aim' ) );
-		}
-			
 		// Retrieve the body's resopnse if no errors found
 		$response_body = wp_remote_retrieve_body( $response );
 
