@@ -16,14 +16,14 @@ function add_promisepay_user($environment_url, $user) {
 
 		$payload_user = array(
 			"id" =>  pp_id_from_wc_id( $user->ID ),
-			"first_name"         	=> $user->first_name, //buyer
-			"last_name"          	=> $user->last_name,
+			"first_name"         	=> empty($user->first_name) ? "<no_first_name>" :  $user->first_name, //buyer
+			"last_name"          	=> empty($user->lastname )  ? "<no_last_name>"  : $user->last_name,
 			"email"              	=> $email,
 			"state"					=> 'NY',
 			"country"				=> 'USA',
 		  );
 
-		error_log( " payload item build-query::: " . http_build_query($payload_user) );
+		error_log( " payload user build-query::: " . http_build_query($payload_user) );
 		//add buyer to Promisepay 
 
 		$response = wp_remote_post( $environment_url_user, array(
@@ -66,7 +66,7 @@ function  add_promisepay_seller($environment_url, $order_id){
 		$seller_id = dokan_get_seller_id_by_order( $order_id );
 
 		$seller = new WP_user($seller_id);
-
+		
 		return add_promisepay_user($environment_url, $seller);
 
 }
@@ -101,7 +101,7 @@ function  add_promisepay_item($environment_url, $order_id) {
 		//add the item to Promiepay:
 		$payload_item = array(
 			"id"	=>  "WooCommerceBidC".$order_id,
-			"amount"  => $customer_order-> get_total(),
+			"amount"  => $customer_order-> get_total() *100 , //in # of cents , as promisepay likes
 			"name"   => $product_list,
 			"payment_type" => 1, //escrow
 			"buyer_id" =>   pp_id_from_wc_id ($current_user->ID),
@@ -291,10 +291,14 @@ class SPYR_PromisePay_AIM extends WC_Payment_Gateway {
 		
 
 		$response = add_promisepay_seller($environment_url, $order_id);
-
+		error_log(" seller added");
+		
 		$response = add_promisepay_buyer ($environment_url);
+		error_log ("buyer added");
 
 		$response = add_promisepay_item($environment_url, $order_id);
+		error_log ("item added");
+
 		
 
 		// Retrieve the body's resopnse if no errors found
@@ -311,31 +315,29 @@ class SPYR_PromisePay_AIM extends WC_Payment_Gateway {
 		$r['response_reason_code']      = $resp[2];
 		$r['response_reason_text']      = $resp[3];
 
-		// Test the code to know if the transaction went through or not.
-		// 1 or 4 means the transaction was a success
-		if ( ( $r['response_code'] == 1 ) || ( $r['response_code'] == 4 ) ) {
-			// Payment has been successful
-			$customer_order->update_status('Testing!!!', __('Awaiting payment from buyer to the escorw', 'spyr-promisepay-aim'));
+		
+		//set to wc-pending
+		if(true){
+		  $customer_order->update_status('wc-pending', __('Awaiting payment from buyer to the escorw', 'spyr-promisepay-aim'));
+		  
+		  $customer_order->add_order_note( __( 'set to pending', 'spyr-promisepay-aim' ) );
+		  
+		  // Empty the cart (Very important step)
+		  $woocommerce->cart->empty_cart();
 
-			$customer_order->add_order_note( __( 'PromisPay payment testing.', 'spyr-promisepay-aim' ) );
-												 
-	
-			// Empty the cart (Very important step)
-			$woocommerce->cart->empty_cart();
-
-			// Redirect to thank you page
-			return array(
-				'result'   => 'success',
-				'redirect' => $this->get_return_url( $customer_order ),
-			);
+		  // Redirect to thank you page
+		  return array(
+			     'result'   => 'success',
+			     'redirect' => $this->get_return_url( $customer_order ),
+			     );
 		} else {
-			// Transaction was not succesful
-			// Add notice to the cart
-			wc_add_notice($response_body, 'error');
-			//wc_add_notice( $r['response_reason_text'], 'error' );
-			
-			// Add note to the order for your reference
-			$customer_order->add_order_note( 'Error: '. $r['response_reason_text'] );
+		  // Transaction was not succesful
+		  // Add notice to the cart
+		  wc_add_notice($response_body, 'error');
+		  //wc_add_notice( $r['response_reason_text'], 'error' );
+		  
+		  // Add note to the order for your reference
+		  $customer_order->add_order_note( 'Error: '. $r['response_reason_text'] );
 		}
 		
 
