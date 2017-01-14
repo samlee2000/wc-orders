@@ -252,7 +252,7 @@ class SPYR_PromisePay_AIM extends WC_Payment_Gateway {
 			'basic_authorization_token' => array(
 				'title' 	=> __('The authorization token to login PromisPay account', 'spyr-promisepay-aim'),
 				'type'	 	=> 'text',
-				'default'  	=> 'c2FtbGVlMjAwMEBnbWFpbC5jb206c2Vjb25kZ2Y',
+				'default'  	=> 'c2FtbGVlMjAwMEBnbWFpbC5jb206WmlvbjEyMzQ',
 				'desc_tip'	=> __( 'This can be generated with Postman , based on your PromisPay login/password'),
 			),
 			'environment' => array(
@@ -321,7 +321,10 @@ class SPYR_PromisePay_AIM extends WC_Payment_Gateway {
 		  $customer_order->update_status('wc-pending', __('Awaiting payment from buyer to the escorw', 'spyr-promisepay-aim'));
 		  
 		  $customer_order->add_order_note( __( 'set to pending', 'spyr-promisepay-aim' ) );
-		  
+
+		  $paymenturl = $customer_order->get_checkout_payment_url();
+		  error_log("payment url: ". $paymenturl);
+
 		  // Empty the cart (Very important step)
 		  $woocommerce->cart->empty_cart();
 
